@@ -1,0 +1,97 @@
+version: '3'
+
+services:
+
+  zookeeper:
+    build:
+      context: ../
+    image: "confluentinc/cp-zookeeper:7.0.1"
+    container_name: zookeeper
+    ports:
+      - "${ZOOKEEPER_PORT}:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: "${ZOOKEEPER_PORT}"
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    build:
+      context: ../
+    image: "confluentinc/cp-kafka:7.0.1"
+    container_name: kafka
+    ports:
+      - "${KAFKA_PORT}:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      CONFLUENT_METRICS_ENABLE: 'false'
+
+  postgres:
+    build:
+      context: ../
+    image: "bitnami/postgresql:13.4.0"
+    container_name: postgres
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "users", "-U", "postgres" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+    restart: always
+    environment:
+      POSTGRESQL_USERNAME: "${DB_USER}"
+      POSTGRESQL_PASSWORD: "${DB_PASSWORD}"
+      POSTGRESQL_DATABASE: "${DATABASE_NAME}"
+
+  liquibase:
+    build:
+      context: ../
+    container_name: liquibase
+    image: "liquibase/liquibase"
+    volumes:
+      - ./liquibase/changelog/:/liquibase/changelog/
+    command:
+      --defaults-file=/liquibase/changelog/liquibase.properties update
+    depends_on:
+      - postgres
+
+  api-gateway:
+    build:
+      context: ../
+      dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "${API_GATEWAY_PORT}:8080"
+    environment:
+      PARCEL_SERVICE_DOMAIN: "parcel-service"
+      USER_SERVICE_DOMAIN: "user-service"
+    depends_on:
+      - zookeeper
+      - kafka
+
+  user-service:
+    build:
+      context: ../
+      dockerfile: user-service/Dockerfile
+    container_name: user-service
+    ports:
+      - "${USER_SERVICE_PORT}:8081"
+    environment:
+      BROKERS: kafka:9092
+      ZK_NODES: zookeeper
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/users
+      SPRING_DATASOURCE_USERNAME: "${DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${DB_PASSWORD}"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: none
+    depends_on:
+      - zookeeper
+      - kafka
+      - postgres
