@@ -1,6 +1,6 @@
 databaseChangeLog:
   -  changeSet:
-       id:  1
+       id:  1.0
        author:  zis9564
        changes:
          -  createTable:
@@ -8,16 +8,47 @@ databaseChangeLog:
               columns:
                 -  column:
                      name:  id
-                     type:  int
+                     type:  BIGSERIAL
                      autoIncrement:  true
                      constraints:
-                       primaryKey:  true
-                       nullable:  false
+                        primaryKey:  true
+                        nullable:  false
                 -  column:
-                     name:  firstname
+                     name:  name
                      type:  varchar(50)
+                     constraints:
+                        nullable:  false
                 -  column:
                      name:  lastname
                      type:  varchar(50)
                      constraints:
-                       nullable:  false
+                        nullable:  false
+                - column:
+                    name: role
+                    type: integer
+                    constraints:
+                      constraintName:  fk_role
+                      baseColumnNames:  role_id
+                      baseTableName: role
+                - column:
+                    name: phone
+                    type: varchar(20)
+                    constraints:
+                      nullable: false
+                      unique: true
+                - column:
+                    name: created_at
+                    type: timestamp
+                    constraints:
+                      nullable: false
+                - column:
+                    name: updated_at
+                    type: timestamp
+                    constraints:
+                      nullable: true
+                - column:
+                    name: created_by
+                    type: bigint
+                - column:
+                    name: updated_by
+                    type: bigint

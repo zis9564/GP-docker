@@ -1,0 +1,1 @@
+CREATE DATABASE "guava-pay" ENCODING 'UTF8';
