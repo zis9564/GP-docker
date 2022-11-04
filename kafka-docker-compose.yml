@@ -1,0 +1,82 @@
+version: '3'
+
+services:
+
+  postgres:
+    image: "debezium/postgres:13"
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+    restart: always
+    environment:
+      POSTGRES_USERNAME: postgres #"${DB_USER}"
+      POSTGRES_PASSWORD: password #"${DB_PASSWORD}"
+      POSTGRES_DATABASE: users #"${DB_NAME}"
+
+  liquibase:
+    image: "liquibase/liquibase"
+    container_name: liquibase
+    volumes:
+      - ./liquibase/changelog/:/liquibase/changelog/
+    command:
+      --defaults-file=/liquibase/changelog/liquibase.properties update
+    depends_on: [ postgres ]
+
+  zookeeper:
+    image: "confluentinc/cp-zookeeper:7.0.1"
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181 #"${ZOOKEEPER_PORT}"
+
+  kafka:
+    image: "confluentinc/cp-enterprise-kafka:7.0.1"
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_JMX_PORT: 9991
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://172.17.0.1:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on: [zookeeper]
+
+  kafka-connector:
+    image: debezium/connect:2.0
+    container_name: kafka-connector
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./kafka:/usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib
+    environment:
+      BOOTSTRAP_SERVERS: 172.17.0.1:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: connect_configs
+      OFFSET_STORAGE_TOPIC: connect_offsets
+      CONNECT_STATUS_STORAGE_TOPIC: connect-status
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    depends_on: [kafka, postgres]
+
+  schema-registry:
+    image: "confluentinc/cp-schema-registry:7.0.1"
+    container_name: schema-registry
+    ports:
+      - "8081:8081/tcp"
+#    volumes:
+#      - ./kafka/scripts:/scripts
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 172.17.0.1:2181
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://172.17.0.1:9092
+      SCHEMA_REGISTRY_LISTENERS: http://localhost:8081,http://172.17.0.1:8081
+    depends_on: [zookeeper, kafka]
