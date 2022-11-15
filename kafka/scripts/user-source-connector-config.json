@@ -1,0 +1,13 @@
+{
+  "name": "io.confluent.connect.jdbc.JdbcSourceConnector",
+  "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+  "connection.url": "jdbc:postgresql://172.17.0.1:5432/guava-pay",
+  "connection.user": "postgres",
+  "connection.password": "password",
+  "table.whitelist": "user",
+  "mode":"incrementing",
+  "incrementing.column.name": "id",
+  "poll.interval.ms" : "3600",
+  "batch.max.rows": "5",
+  "topic.prefix": "jdbc-connector-"
+}
