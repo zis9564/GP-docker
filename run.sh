@@ -15,4 +15,4 @@ if [ -n "$(ls -A $plugins_dir 2>/dev/null)" ];
 	echo "success.";
 else   echo "dir is empty"; fi
 
-#docker-compose -f docker-compose-middleware.yml up -d
+docker-compose -f kafka-docker-compose.yml up -d

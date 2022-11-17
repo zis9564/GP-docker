@@ -3,9 +3,8 @@ version: '3'
 services:
 
   postgres:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: bitnami/postgresql:13.4.0
+    container_name: postgres
     healthcheck:
       test: [ "CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres" ]
       timeout: 45s
@@ -64,6 +63,7 @@ services:
     hostname: connect
     container_name: connect
     depends_on:
+      - schema-registry
       - zookeeper
       - kafka
     ports:
@@ -92,3 +92,31 @@ services:
       CONNECT_PLUGIN_PATH: '/usr/share/java,/etc/kafka-connect/jars'
     volumes:
       - ./kafka/connectors/:/etc/kafka-connect/jars/
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.2.1
+    container_name: schema-registry
+    hostname: schema-registry
+    depends_on:
+      - zookeeper
+      - kafka
+    ports:
+      - '8081:8081'
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://172.17.0.1:9092
+      SCHEMA_REGISTRY_KAFKASTORE_SASL_MECHANISM: "PLAIN"
+
+  api-gateway:
+    build:
+      context: ../
+      dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
+    depends_on:
+      - zookeeper
+      - kafka
+      - connect
+      - schema-registry
+    ports:
+      - "8080:8080"
